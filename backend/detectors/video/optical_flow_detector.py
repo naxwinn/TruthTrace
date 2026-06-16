@@ -168,8 +168,8 @@ class OpticalFlowDetector:
                 static_run += 1
             else:
                 if static_run >= 3:  # At least 3 identical frames at 2fps = 1.5s freeze
-                        start_time = static_start / self.effective_fps
-                        end_time = (static_start + static_run) / self.effective_fps
+                    start_time = static_start / self.effective_fps
+                    end_time = (static_start + static_run) / self.effective_fps
                     duration = end_time - start_time
                     confidence = min(0.5 + duration * 0.1, 0.85)
 

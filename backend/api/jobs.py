@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
 from pathlib import Path
+import concurrent.futures
 
 from database import get_db
 from api.models import AnalysisJob, MediaFile, Finding
@@ -15,9 +16,17 @@ from config import settings
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
+# Dedicated thread pool for analysis to avoid blocking the server
+_analysis_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="analysis")
+
 
 def run_analysis(job_id: str, db_url: str):
-    """Background task to run full analysis pipeline."""
+    """Background task to run full analysis pipeline in dedicated thread pool."""
+    _analysis_executor.submit(_run_analysis_worker, job_id, db_url)
+
+
+def _run_analysis_worker(job_id: str, db_url: str):
+    """Actual analysis worker — runs in thread pool, won't block server."""
     pipeline = AnalysisPipeline(job_id, db_url)
     pipeline.run()
 
