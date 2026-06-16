@@ -1,0 +1,8 @@
+[project]
+name = "truthtrace-backend"
+version = "0.1.0"
+description = "TruthTrace - Media Forensics Analysis MVP"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

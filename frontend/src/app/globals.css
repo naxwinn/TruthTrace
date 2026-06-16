@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+:root {
+  --background: #050508;
+  --foreground: #e8e8ef;
+  --cyan-glow: #00f0ff;
+  --amber-glow: #ff6b2b;
+  --red-glow: #ff2b4e;
+  --deep-purple: #1a0a2e;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-cyan-glow: var(--cyan-glow);
+  --color-amber-glow: var(--amber-glow);
+  --color-red-glow: var(--red-glow);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 240, 255, 0.3) transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes scan-line {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.text-glow-cyan {
+  text-shadow: 0 0 20px rgba(0, 240, 255, 0.5), 0 0 40px rgba(0, 240, 255, 0.3);
+}
+
+.text-glow-amber {
+  text-shadow: 0 0 20px rgba(255, 107, 43, 0.5), 0 0 40px rgba(255, 107, 43, 0.3);
+}
+
+.glass {
+  background: rgba(5, 5, 8, 0.7);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 240, 255, 0.1);
+}
+
+.glass-strong {
+  background: rgba(10, 10, 20, 0.85);
+  backdrop-filter: blur(30px);
+  border: 1px solid rgba(0, 240, 255, 0.15);
+}

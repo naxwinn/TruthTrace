@@ -1,0 +1,40 @@
+# Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+alembic==1.13.0
+
+# Media Processing
+ffmpeg-python==0.2.0
+
+# Audio Forensics
+librosa==0.10.1
+scipy==1.11.4
+numpy==1.26.2
+soundfile==0.12.1
+
+# Video Forensics
+opencv-python==4.8.1.78
+
+# Metadata Forensics
+Pillow==10.1.0
+
+# Report Generation
+reportlab==4.0.8
+fpdf2==2.7.6
+
+# ML / Voice Clone Detection
+torch==2.1.1
+torchaudio==2.1.1
+
+# Utilities
+pydantic==2.5.2
+python-dotenv==1.0.0
+celery==5.3.6
+redis==5.0.1
+httpx==0.25.2
+aiofiles==23.2.1

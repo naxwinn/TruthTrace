@@ -1,0 +1,20 @@
+# Python
+backend/venv/
+backend/__pycache__/
+**/__pycache__/
+*.pyc
+backend/.env
+backend/truthtrace.db
+
+# Node
+frontend/node_modules/
+frontend/.next/
+frontend/.env*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Storage data (large files)
+storage/
+test_data/
