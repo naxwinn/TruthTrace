@@ -4,11 +4,13 @@ Orchestrates all detectors and stores findings in the database.
 """
 
 import json
+import logging
 import subprocess
 from pathlib import Path
 from datetime import datetime
 from typing import List
 
+import numpy as np
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -22,6 +24,25 @@ from detectors.video.gop_detector import GOPDetector
 from detectors.video.compression_detector import CompressionDetector
 from detectors.fusion.engine import FusionEngine
 from config import settings
+
+logger = logging.getLogger(__name__)
+
+
+def _sanitize_for_json(obj):
+    """Convert numpy types to Python native types for JSON serialization."""
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [_sanitize_for_json(item) for item in obj]
+    elif isinstance(obj, (np.integer,)):
+        return int(obj)
+    elif isinstance(obj, (np.floating,)):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, (np.bool_,)):
+        return bool(obj)
+    return obj
 
 
 class AnalysisPipeline:
@@ -169,22 +190,32 @@ class AnalysisPipeline:
                 # Calculate authenticity score
                 authenticity_score = self._calculate_authenticity_score(all_findings, incidents)
 
+                # Sanitize all data for JSON serialization (numpy types → native Python)
+                safe_incidents = _sanitize_for_json(incidents)
+                safe_extraction = _sanitize_for_json(extraction)
+
                 job.status = "complete"
                 job.progress = 100.0
                 job.authenticity_score = authenticity_score
                 job.findings = {
                     "count": len(all_findings),
-                    "incidents": incidents,
-                    "extraction": extraction,
+                    "incidents": safe_incidents,
+                    "extraction": safe_extraction,
                 }
                 job.updated_at = datetime.utcnow()
                 db.commit()
+                logger.info(f"Job {self.job_id} completed. Score={authenticity_score}, Findings={len(all_findings)}")
 
             except Exception as e:
-                job.status = "failed"
-                job.error_message = str(e)[:1000]
-                job.updated_at = datetime.utcnow()
-                db.commit()
+                logger.error(f"Job {self.job_id} failed: {e}", exc_info=True)
+                db.rollback()  # Reset session state before error update
+                try:
+                    job.status = "failed"
+                    job.error_message = str(e)[:1000]
+                    job.updated_at = datetime.utcnow()
+                    db.commit()
+                except Exception:
+                    logger.error(f"Job {self.job_id}: failed to persist error state")
 
     def _update_job(self, db: Session, job: AnalysisJob, status: str, progress: float):
         job.status = status
