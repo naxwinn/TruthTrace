@@ -30,6 +30,7 @@ export function ReportView() {
   if (!report) return null;
 
   const score = report.job.authenticity_score ?? 1;
+  const tamperScore = 1 - score;
   const verdict =
     score >= 0.7 ? "Authentic" : score >= 0.4 ? "Suspicious" : "Tampered";
   const verdictColor =
@@ -89,7 +90,7 @@ export function ReportView() {
             <p style="color: #666;">Generated: ${new Date().toLocaleString()}</p>
           </div>
           <div class="verdict ${score >= 0.7 ? "good" : score >= 0.4 ? "warn" : "bad"}">
-            ${verdict} (${(score * 100).toFixed(0)}%)
+            ${verdict} (${(tamperScore * 100).toFixed(0)}% tampering probability)
           </div>
         </div>
 
@@ -180,7 +181,7 @@ export function ReportView() {
                 {verdict}
               </div>
               <div className="text-xs text-gray-500 mt-1">
-                Score: {(score * 100).toFixed(0)}%
+                Tampering: {(tamperScore * 100).toFixed(0)}%
               </div>
             </div>
             <div className="text-center p-4 rounded-xl bg-gray-800/30 border border-gray-700/30">

@@ -36,6 +36,7 @@ export function TimelineView() {
 
   const duration = report.file.duration || 60;
   const score = report.job.authenticity_score ?? 1;
+  const tamperScore = 1 - score;
   const verdict = score >= 0.7 ? "Likely Authentic" : score >= 0.4 ? "Suspicious" : "Likely Tampered";
   const verdictColor = score >= 0.7 ? "text-emerald-400" : score >= 0.4 ? "text-amber-400" : "text-red-400";
 
@@ -68,7 +69,7 @@ export function TimelineView() {
           <div className={`flex items-center gap-2 px-4 py-2 rounded-xl glass ${verdictColor}`}>
             <Shield className="h-5 w-5" />
             <div className="text-right">
-              <div className="text-sm font-bold">{(score * 100).toFixed(0)}%</div>
+              <div className="text-sm font-bold">{(tamperScore * 100).toFixed(0)}%</div>
               <div className="text-xs opacity-80">{verdict}</div>
             </div>
           </div>
