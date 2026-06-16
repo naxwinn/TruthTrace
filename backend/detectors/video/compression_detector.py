@@ -13,11 +13,32 @@ from typing import List
 
 
 class CompressionDetector:
+    MAX_FRAMES = 150  # Cap frames to bound runtime
+
     def __init__(self, frames_dir: str, fps: float = 2.0):
         self.frames_dir = Path(frames_dir)
         self.fps = fps
         self.findings: List[dict] = []
-        self.frame_paths = sorted(self.frames_dir.glob("frame_*.jpg"))
+        all_paths = sorted(self.frames_dir.glob("frame_*.jpg"))
+        # Sample frames if too many
+        if len(all_paths) > self.MAX_FRAMES:
+            indices = np.linspace(0, len(all_paths) - 1, self.MAX_FRAMES, dtype=int)
+            self.frame_paths = [all_paths[i] for i in indices]
+            self.effective_fps = fps * (len(all_paths) / self.MAX_FRAMES)
+        else:
+            self.frame_paths = all_paths
+            self.effective_fps = fps
+        self._cached_frames = None
+
+    def _load_frames(self) -> List[np.ndarray]:
+        """Load all frames once and cache them."""
+        if self._cached_frames is not None:
+            return self._cached_frames
+        self._cached_frames = []
+        for frame_path in self.frame_paths:
+            img = cv2.imread(str(frame_path), cv2.IMREAD_GRAYSCALE)
+            self._cached_frames.append(img)
+        return self._cached_frames
 
     def analyze(self) -> List[dict]:
         """Run compression anomaly detection."""
@@ -26,6 +47,7 @@ class CompressionDetector:
 
         self._detect_quantization_inconsistency()
         self._detect_block_artifact_anomalies()
+        self._cached_frames = None  # Free memory after analysis
         return self.findings
 
     def _detect_quantization_inconsistency(self):
@@ -34,9 +56,9 @@ class CompressionDetector:
         Double-compressed regions show different DCT coefficient distributions.
         """
         quality_scores = []
+        frames = self._load_frames()
 
-        for frame_path in self.frame_paths:
-            img = cv2.imread(str(frame_path), cv2.IMREAD_GRAYSCALE)
+        for img in frames:
             if img is None:
                 quality_scores.append(0)
                 continue
@@ -57,14 +79,14 @@ class CompressionDetector:
 
         for i, diff in enumerate(quality_diff):
             if diff > threshold:
-                time = (i + 1) / self.fps
+                time = (i + 1) / self.effective_fps
                 confidence = min(0.35 + (diff - threshold) * 0.15, 0.82)
 
                 self.findings.append({
                     "finding_type": "compression_anomaly",
                     "confidence": confidence,
-                    "start_time": round(time - 0.5 / self.fps, 3),
-                    "end_time": round(time + 0.5 / self.fps, 3),
+                    "start_time": round(time - 0.5 / self.effective_fps, 3),
+                    "end_time": round(time + 0.5 / self.effective_fps, 3),
                     "description": f"Quantization level change at {time:.2f}s (delta={diff:.2f}) suggests double compression",
                     "details": {
                         "method": "quantization_analysis",
@@ -79,9 +101,9 @@ class CompressionDetector:
         Re-compressed regions may show misaligned or stronger blocking.
         """
         block_scores = []
+        frames = self._load_frames()
 
-        for frame_path in self.frame_paths:
-            img = cv2.imread(str(frame_path), cv2.IMREAD_GRAYSCALE)
+        for img in frames:
             if img is None:
                 block_scores.append(0)
                 continue
@@ -99,7 +121,7 @@ class CompressionDetector:
         threshold = 2.0
         for i, score in enumerate(block_norm):
             if abs(score) > threshold:
-                time = i / self.fps
+                time = i / self.effective_fps
                 confidence = min(0.3 + (abs(score) - threshold) * 0.12, 0.78)
 
                 finding_type = "double_compression" if score > 0 else "compression_anomaly"
@@ -109,7 +131,7 @@ class CompressionDetector:
                     "finding_type": finding_type,
                     "confidence": confidence,
                     "start_time": round(time, 3),
-                    "end_time": round(time + 1.0 / self.fps, 3),
+                    "end_time": round(time + 1.0 / self.effective_fps, 3),
                     "description": f"{desc} block artifacts at {time:.2f}s (z={score:.1f}) indicates potential re-encoding",
                     "details": {
                         "method": "block_artifact",

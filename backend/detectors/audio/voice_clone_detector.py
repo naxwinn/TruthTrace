@@ -15,10 +15,13 @@ from pathlib import Path
 
 
 class VoiceCloneDetector:
-    def __init__(self, audio_path: str, sr: int = 22050):
+    def __init__(self, audio_path: str, sr: int = 22050, y: np.ndarray = None):
         self.audio_path = Path(audio_path)
         self.sr = sr
-        self.y, _ = librosa.load(str(self.audio_path), sr=self.sr)
+        if y is not None:
+            self.y = y
+        else:
+            self.y, _ = librosa.load(str(self.audio_path), sr=self.sr)
         self.duration = len(self.y) / self.sr
         self.findings: List[dict] = []
 
@@ -111,7 +114,7 @@ class VoiceCloneDetector:
         """
         # Use LPC to estimate formants in windows
         window_size = int(self.sr * 0.03)  # 30ms windows
-        hop = int(self.sr * 0.01)  # 10ms hop
+        hop = int(self.sr * 0.05)  # 50ms hop (was 10ms — 5x faster)
         order = 12
 
         formant_variations = []

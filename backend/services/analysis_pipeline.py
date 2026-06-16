@@ -4,6 +4,7 @@ Orchestrates all detectors and stores findings in the database.
 """
 
 import json
+import subprocess
 from pathlib import Path
 from datetime import datetime
 from typing import List
@@ -49,7 +50,13 @@ class AnalysisPipeline:
                 # Phase 1: Extraction
                 self._update_job(db, job, "extracting", 5.0)
                 extractor = MediaExtractor(media_file.file_path, self.job_id)
-                extraction = extractor.extract_all()
+                try:
+                    extraction = extractor.extract_all()
+                except subprocess.TimeoutExpired as e:
+                    job.status = "failed"
+                    job.error_message = f"Extraction timed out: {str(e)[:200]}"
+                    db.commit()
+                    return
 
                 # Update duration
                 duration = extraction.get("metadata", {}).get("duration")
@@ -74,9 +81,13 @@ class AnalysisPipeline:
                 # Phase 3: Audio Forensics
                 audio_path = extraction.get("audio", {}).get("path")
                 if audio_path and Path(audio_path).exists():
+                    # Load audio once and share between detectors
+                    import librosa
+                    audio_y, audio_sr = librosa.load(audio_path, sr=22050)
+
                     # Splice detection
                     self._update_job(db, job, "analyzing", 40.0)
-                    splice_detector = AudioSpliceDetector(audio_path)
+                    splice_detector = AudioSpliceDetector(audio_path, y=audio_y)
                     findings = splice_detector.analyze()
                     for f in findings:
                         f["detector_type"] = "audio"
@@ -84,11 +95,13 @@ class AnalysisPipeline:
 
                     # Voice clone detection
                     self._update_job(db, job, "analyzing", 55.0)
-                    clone_detector = VoiceCloneDetector(audio_path)
+                    clone_detector = VoiceCloneDetector(audio_path, y=audio_y)
                     findings = clone_detector.analyze()
                     for f in findings:
                         f["detector_type"] = "audio"
                     all_findings.extend(findings)
+
+                    del audio_y  # Free memory
 
                 # Phase 4: Video Forensics
                 frames_path = extraction.get("frames", {}).get("path")
@@ -113,7 +126,10 @@ class AnalysisPipeline:
 
                 # GOP analysis (needs raw file, not frames)
                 self._update_job(db, job, "analyzing", 80.0)
-                gop_data = extractor.get_gop_structure()
+                try:
+                    gop_data = extractor.get_gop_structure()
+                except (subprocess.TimeoutExpired, Exception) as e:
+                    gop_data = None  # Skip GOP if it times out — non-critical
                 if gop_data:
                     comp_info = extractor.get_compression_info()
                     video_fps = 25.0

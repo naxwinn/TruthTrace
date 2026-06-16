@@ -31,13 +31,15 @@ export function AnalysisView() {
     };
   }, [phase, messages.length]);
 
-  // Poll job status
+  // Poll job status — use job ID as stable dependency to avoid interval resets
+  const jobId = analysisState.job?.id;
+
   useEffect(() => {
-    if (phase !== "analyzing" || !analysisState.job) return;
+    if (phase !== "analyzing" || !jobId) return;
 
     const pollJob = async () => {
       try {
-        const updatedJob = await getJob(analysisState.job!.id);
+        const updatedJob = await getJob(jobId);
         setJob(updatedJob);
 
         if (updatedJob.status === "complete") {
@@ -53,19 +55,24 @@ export function AnalysisView() {
           if (pollingRef.current) clearInterval(pollingRef.current);
         } else if (updatedJob.status === "failed") {
           if (pollingRef.current) clearInterval(pollingRef.current);
+        } else {
+          // Update progress from backend
+          if (updatedJob.progress > 0) {
+            setProgress(Math.max(progress, Math.round(updatedJob.progress * 0.95)));
+          }
         }
       } catch {
         // silently retry
       }
     };
 
-    pollingRef.current = setInterval(pollJob, 3000);
+    pollingRef.current = setInterval(pollJob, 2000);
     pollJob();
 
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [phase, analysisState.job, setJob, setReport, setPhase]);
+  }, [phase, jobId, setJob, setReport, setPhase]);
 
   if (phase !== "analyzing") return null;
 

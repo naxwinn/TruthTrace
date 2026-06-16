@@ -143,22 +143,52 @@ class MediaExtractor:
         }
 
     def get_gop_structure(self) -> Optional[list]:
-        """Extract GOP (Group of Pictures) structure for video forensics."""
+        """Extract GOP (Group of Pictures) structure for video forensics.
+        Uses -skip_frame nokey to only parse keyframes for speed on large files.
+        """
+        # First try fast keyframe-only extraction
         cmd = [
             "ffprobe",
             "-v", "quiet",
             "-select_streams", "v:0",
+            "-skip_frame", "nokey",
             "-show_frames",
             "-show_entries", "frame=pict_type,pts_time,key_frame",
             "-print_format", "json",
             str(self.media_path),
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         if result.returncode != 0:
             return None
 
         data = json.loads(result.stdout)
         frames = data.get("frames", [])
+
+        # If we got keyframes, also do a lightweight packet-level scan for full GOP structure
+        if frames:
+            packet_cmd = [
+                "ffprobe",
+                "-v", "quiet",
+                "-select_streams", "v:0",
+                "-show_packets",
+                "-show_entries", "packet=flags,pts_time",
+                "-print_format", "json",
+                str(self.media_path),
+            ]
+            packet_result = subprocess.run(packet_cmd, capture_output=True, text=True, timeout=300)
+            if packet_result.returncode == 0:
+                packet_data = json.loads(packet_result.stdout)
+                packets = packet_data.get("packets", [])
+                # Convert packets to frame-like structure for GOP analysis
+                frame_list = []
+                for pkt in packets:
+                    is_key = 1 if "K" in pkt.get("flags", "") else 0
+                    frame_list.append({
+                        "key_frame": is_key,
+                        "pict_type": "I" if is_key else "P",
+                        "pts_time": pkt.get("pts_time", "0"),
+                    })
+                frames = frame_list
 
         gop_path = self.output_dir / "gop_structure.json"
         with open(gop_path, "w") as f:
